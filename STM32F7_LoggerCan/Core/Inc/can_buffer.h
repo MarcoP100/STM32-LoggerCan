@@ -33,6 +33,7 @@ extern volatile uint32_t durata_interrupt;
 
 extern volatile uint32_t num_fifo0;
 extern volatile uint32_t num_fifo1;
+extern volatile uint32_t cnt_tooMsgFifo0;
 
 typedef struct {
     uint32_t id;

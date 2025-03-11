@@ -475,7 +475,7 @@ void StartTaskCAN(void *argument)
 	  //uint32_t timestamp = get_timestamp_10us();
 	  //printf("Timestamp: %d\n", timestamp);
 	  print_error_cnt();
-    osDelay(10);
+    osDelay(1);
   }
   /* USER CODE END 5 */
 }

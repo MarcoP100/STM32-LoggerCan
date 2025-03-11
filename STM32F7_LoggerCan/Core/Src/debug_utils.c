@@ -42,10 +42,16 @@ void Print_Report() {
 
 void print_error_cnt() {
 	uint32_t current_time = HAL_GetTick();
+	uint32_t msgPersi = 0;
 	    if (current_time - last_report_time >= REPORT_INTERVAL) {
 	        printf("Write: Anomalie: %d -- Ok: %d\n", error_timestamp, ok_timestamp);
 	        printf("Read: Anomalie: %d -- Ok: %d\n", error_timestamp_read, ok_timestamp_read);
-	        printf("Fifo: %d / %d\n\n\n", num_fifo0, num_fifo1);
+	        printf("TooMsg: %d\n", cnt_tooMsgFifo0);
+	        uint32_t msgRicevuti = num_fifo0 + num_fifo1;
+	        uint32_t msgScritti = ok_timestamp;
+	        msgPersi = msgRicevuti - msgScritti;
+	        printf("Fifo: %d / %d \n", num_fifo0, num_fifo1);
+	        printf("Ricevuti: %d, Scritti: %d, Persi: %d \n\n\n\n", msgRicevuti, msgScritti, msgPersi);
 	        //printf("Interrupt: %d\n\n\n", durata_interrupt);
 
 	        last_report_time = current_time;

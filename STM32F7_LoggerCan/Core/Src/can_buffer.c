@@ -27,29 +27,57 @@ volatile uint32_t last_counter_msg = 0;
 volatile uint32_t last_timestamp_buffer_read = 0;
 volatile uint16_t error_timestamp_read = 0;
 volatile uint32_t ok_timestamp_read = 0;
+volatile uint32_t last_counter_msg_read = 0;
 
 volatile uint32_t durata_interrupt = 0;
 
 volatile uint32_t num_fifo0 = 0;
 volatile uint32_t num_fifo1 = 0;
 
+static uint32_t counter_globale = 0; // Mantiene il contatore tra i messaggi
+
+volatile uint8_t isr_in_corso = 0;
+volatile uint32_t cnt_tooMsgFifo0 = 0;
+
 void buffer_write(CAN_Message *msg) {
+
+	__disable_irq();
+
     canBuffer[canBufferHead] = *msg;
     canBufferHead = (canBufferHead + 1) % CAN_BUFFER_SIZE;
     if (buffer_count < CAN_BUFFER_SIZE) {
     	buffer_count++;
     } else {
-
-        canBufferTail = (canBufferTail + 1) % CAN_BUFFER_SIZE; // Sovrascrive il più vecchio
+    	canBufferTail = (canBufferTail + 1) % CAN_BUFFER_SIZE; // Sovrascrive il più vecchio
     }
-    if (msg->timestamp < last_timestamp_buffer){
+
+    if (buffer_count > 90 || buffer_count < 0) {
+    	printf("⚠️ BUFFER PIENO! Perdita di messaggi! Tail: %d → %d\n", canBufferTail, (canBufferTail + 1) % CAN_BUFFER_SIZE);
+    }
+
+    ok_timestamp++;
+
+
+    /*if (msg->timestamp < last_timestamp_buffer){
     	error_timestamp ++;
     	printf("ERRORE SCRITTURA: ID 0x%X - TS: %lu < %lu (Prev) - cnt; %lu to %lu\n",
     	msg->id, msg->timestamp, last_timestamp_buffer, last_counter_msg, msg->counter);
-    }else 	ok_timestamp++;
+    }*/
 
-    last_timestamp_buffer = msg->timestamp;
+    if (msg->counter != (last_counter_msg + 1)){
+        	printf("ERRORE COUNTER: cnt; %lu to %lu\n",last_counter_msg, msg->counter);
+        }
+
+    //last_timestamp_buffer = msg->timestamp;
     last_counter_msg = msg->counter;
+
+
+    if (msg->counter != (counter_globale - 1)) {
+        printf("⚠️ ERRORE: Scrittura buffer con counter non progressivo! %lu -> %lu\n",
+               counter_globale - 1, msg->counter);
+    }
+    __enable_irq();
+
 }
 
 int buffer_read(CAN_Message *msg) {
@@ -57,18 +85,52 @@ int buffer_read(CAN_Message *msg) {
         return 0; // Nessun dato disponibile
     }
 
+    NVIC_DisableIRQ(CAN1_RX0_IRQn);
+    NVIC_DisableIRQ(CAN1_RX1_IRQn);
+    NVIC_DisableIRQ(CAN2_RX0_IRQn);
+    NVIC_DisableIRQ(CAN2_RX1_IRQn);
+    NVIC_DisableIRQ(CAN3_RX0_IRQn);
+    NVIC_DisableIRQ(CAN3_RX1_IRQn);
+
+
     *msg = canBuffer[canBufferTail];  // Legge il messaggio dal buffer
+
+
     canBufferTail = (canBufferTail + 1) % CAN_BUFFER_SIZE; // Avanza il puntatore
     buffer_count--; // Decrementa il contatore
 
-    if (msg->timestamp < last_timestamp_buffer_read){
+    ok_timestamp_read++;
+
+   /*if (msg->timestamp < last_timestamp_buffer_read){
         	error_timestamp_read ++;
-        }else 	ok_timestamp_read++;
+        //printf("ERRORE LETTURA: ID 0x%X - TS: %lu < %lu (Prev) - cnt; %lu to %lu\n",
+        //	    	msg->id, msg->timestamp, last_timestamp_buffer_read, last_counter_msg_read, msg->counter);
+        }*/
 
-        last_timestamp_buffer_read = msg->timestamp;
+    if (msg->counter < last_counter_msg_read) {
+    	error_timestamp_read ++;
+        /*printf("\n⚠️ ERRORE LETTURA: Counter vecchio! Atteso %lu, trovato %lu\n",
+               last_counter_msg_read + 1, msg->counter);
 
+        printf("   ➤ Stato Buffer: Head: %d, Tail: %d, Count: %d\n",
+               canBufferHead, canBufferTail, buffer_count);
+
+        printf("   ➤ Ultimo Messaggio Letto: Counter: %lu, Timestamp: %lu\n",
+               last_counter_msg_read, last_timestamp_buffer_read);*/
+    }
+       // last_timestamp_buffer_read = msg->timestamp;
+        last_counter_msg_read = msg->counter;
     //check_msg_timestamp(msg);
+        NVIC_EnableIRQ(CAN1_RX0_IRQn);
+        NVIC_EnableIRQ(CAN1_RX1_IRQn);
+        NVIC_EnableIRQ(CAN2_RX0_IRQn);
+        NVIC_EnableIRQ(CAN2_RX1_IRQn);
+        NVIC_EnableIRQ(CAN3_RX0_IRQn);
+        NVIC_EnableIRQ(CAN3_RX1_IRQn);
+
     return 1;
+
+
 }
 
 int buffer_has_data(void) {
@@ -77,6 +139,13 @@ int buffer_has_data(void) {
 
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+
+	 if (isr_in_corso) {
+	        printf("⚠️ ISR INTERROTTO PRIMA DELLA SCRITTURA!\n");
+	    }
+	    isr_in_corso = 1;
+
+
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8];
     //uint32_t inizio_interrupt = get_timestamp_10us();
@@ -84,7 +153,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
     // Disabilita temporaneamente l'interrupt FIFO1 mentre gestiamo FIFO0
     __HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
-    __HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+    //__HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+    uint32_t fifo_level = HAL_CAN_GetRxFifoFillLevel(hcan, CAN_RX_FIFO0);
+    if (fifo_level > 1){
+    	cnt_tooMsgFifo0 ++;}
 
     // Legge il messaggio dalla FIFO 0
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
@@ -94,7 +167,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		msg.dlc = rxHeader.DLC;
 		msg.flags = rxHeader.RTR;
 		msg.timestamp = get_timestamp_10us(); // Timestamp in µs
-		msg.counter ++;
+		msg.counter = counter_globale++;
 
 		for (int i = 0; i < 8; i++) {
 			msg.data[i] = rxData[i];
@@ -114,10 +187,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		//BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 		//vTaskNotifyGiveFromISR(Task_CANHandle, &xHigherPriorityTaskWoken);
 		//portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }else{
+    	 printf("⚠️ ERRORE: HAL_CAN_GetRxMessage() FALLITO!\n");
     }
     // Riabilita l'interrupt FIFO1 dopo la gestione di FIFO0
     __HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
-    __HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+    //__HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+    isr_in_corso = 0;
 }
 
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
@@ -127,7 +204,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
     // Disabilita temporaneamente l'interrupt FIFO1 mentre gestiamo FIFO0
     __HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
-    __HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
+    //__HAL_CAN_DISABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
 
     // Legge il messaggio dalla FIFO 0
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
@@ -137,7 +214,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		msg.dlc = rxHeader.DLC;
 		msg.flags = rxHeader.RTR;
 		msg.timestamp = get_timestamp_10us(); // Timestamp in µs
-		msg.counter ++;
+		msg.counter = counter_globale++;
 
 		for (int i = 0; i < 8; i++) {
 			msg.data[i] = rxData[i];
@@ -153,7 +230,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
     // Riabilita l'interrupt FIFO1 dopo la gestione di FIFO0
     __HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
-    __HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
+    //__HAL_CAN_ENABLE_IT(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
 
 }
 
