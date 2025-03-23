@@ -1,0 +1,87 @@
+!SESSION 2025-03-22 00:12:12.046 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=it_IT
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 -data C:\Users\marco\OneDrive\Desktop\STM32\STM32F767\STM32-LoggerCan\STM32F7_LoggerCan
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-03-22 00:12:28.228
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-03-22 00:12:28.228
+!MESSAGE Log4j2 initialized with config file C:\Users\marco\OneDrive\Desktop\STM32\STM32F767\STM32-LoggerCan\STM32F7_LoggerCan\.metadata\.log4j2.xml
+
+!ENTRY org.eclipse.egit.ui 2 0 2025-03-22 00:12:32.815
+!MESSAGE Warning: The environment variable HOME is not set. The following directory will be used to store the Git
+user global configuration and to define the default location to store repositories: 'C:\Users\marco'. If this is
+not correct please set the HOME environment variable and restart Eclipse. Otherwise Git for Windows and
+EGit might behave differently since they see different configuration options.
+This warning can be switched off on the Team > Git > Confirmations and Warnings preference page.
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-03-22 00:12:35.474
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.core.jobs 2 2 2025-03-22 00:12:52.043
+!MESSAGE Job found still running after platform shutdown.  Jobs should be canceled by the plugin that scheduled them during shutdown: org.eclipse.ui.internal.Workbench$39 RUNNING
+	 at java.base/java.io.RandomAccessFile.readBytes0(Native Method)
+	 at java.base/java.io.RandomAccessFile.readBytes(RandomAccessFile.java:400)
+	 at java.base/java.io.RandomAccessFile.read(RandomAccessFile.java:434)
+	 at java.base/java.io.RandomAccessFile.readFully(RandomAccessFile.java:498)
+	 at java.base/java.util.zip.ZipFile$Source.readFullyAt(ZipFile.java:1528)
+	 at java.base/java.util.zip.ZipFile$ZipFileInputStream.initDataOffset(ZipFile.java:930)
+	 at java.base/java.util.zip.ZipFile$ZipFileInputStream.read(ZipFile.java:946)
+	 at java.base/java.util.zip.ZipFile$ZipFileInflaterInputStream.fill(ZipFile.java:463)
+	 at java.base/java.util.zip.InflaterInputStream.read(InflaterInputStream.java:175)
+	 at java.base/java.io.FilterInputStream.read(FilterInputStream.java:119)
+	 at org.eclipse.osgi.storage.bundlefile.CloseableBundleFile$BundleEntryInputStream.read(CloseableBundleFile.java:548)
+	 at org.eclipse.osgi.storage.StorageUtil.getBytes(StorageUtil.java:187)
+	 at org.eclipse.osgi.storage.bundlefile.BundleEntry.getBytes(BundleEntry.java:102)
+	 at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findClassImpl(ClasspathManager.java:678)
+	 at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findLocalClassImpl(ClasspathManager.java:657)
+	 at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findLocalClassImpl(ClasspathManager.java:637)
+	 at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findLocalClass(ClasspathManager.java:616)
+	 at org.eclipse.osgi.internal.loader.ModuleClassLoader.findLocalClass(ModuleClassLoader.java:348)
+	 at org.eclipse.osgi.internal.loader.BundleLoader.findLocalClass(BundleLoader.java:414)
+	 at org.eclipse.osgi.internal.loader.BundleLoader.findClass0(BundleLoader.java:520)
+	 at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:434)
+	 at org.eclipse.osgi.internal.loader.ModuleClassLoader.loadClass(ModuleClassLoader.java:174)
+	 at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+	 at java.base/java.lang.Class.getDeclaredMethods0(Native Method)
+	 at java.base/java.lang.Class.privateGetDeclaredMethods(Class.java:3578)
+	 at java.base/java.lang.Class.getMethodsRecursive(Class.java:3719)
+	 at java.base/java.lang.Class.getMethod0(Class.java:3705)
+	 at java.base/java.lang.Class.getMethod(Class.java:2393)
+	 at com.teamdev.jxbrowser.deps.com.google.protobuf.GeneratedMessageV3.getMethodOrDie(GeneratedMessageV3.java:1926)
+	 at com.teamdev.jxbrowser.deps.com.google.protobuf.GeneratedMessageV3.access$1000(GeneratedMessageV3.java:79)
+	 at com.teamdev.jxbrowser.deps.com.google.protobuf.GeneratedMessageV3$FieldAccessorTable$SingularMessageFieldAccessor.<init>(GeneratedMessageV3.java:3059)
+	 at com.teamdev.jxbrowser.deps.com.google.protobuf.GeneratedMessageV3$FieldAccessorTable.ensureFieldAccessorsInitialized(GeneratedMessageV3.java:2052)
+	 at com.teamdev.jxbrowser.net.internal.rpc.SelectClientCertificate.internalGetFieldAccessorTable(SelectClientCertificate.java:45)
+	 at com.teamdev.jxbrowser.deps.com.google.protobuf.GeneratedMessageV3.getDescriptorForType(GeneratedMessageV3.java:133)
+	 at com.teamdev.jxbrowser.internal.rpc.stream.CallbackStream.createSubscriptionRequest(CallbackStream.java:98)
+	 at com.teamdev.jxbrowser.internal.rpc.stream.Stream.subscribe(Stream.java:88)
+	 at com.teamdev.jxbrowser.internal.rpc.stream.CallbackStream.set(CallbackStream.java:64)
+	 at com.teamdev.jxbrowser.internal.rpc.ServiceConnectionImpl.set(ServiceConnectionImpl.java:107)
+	 at com.teamdev.jxbrowser.internal.rpc.UniversalServiceConnection.set(UniversalServiceConnection.java:120)
+	 at com.teamdev.jxbrowser.browser.internal.BrowserImpl.set(BrowserImpl.java:795)
+	 at com.teamdev.jxbrowser.browser.internal.BrowserImpl.set(BrowserImpl.java:117)
+	 at com.teamdev.jxbrowser.callback.internal.DefaultCallbacks.set(DefaultCallbacks.java:92)
+	 at com.teamdev.jxbrowser.callback.internal.DefaultCallbacks.lambda$register$0(DefaultCallbacks.java:65)
+	 at java.base/java.util.HashMap.forEach(HashMap.java:1429)
+	 at java.base/java.util.Collections$UnmodifiableMap.forEach(Collections.java:1707)
+	 at com.teamdev.jxbrowser.callback.internal.DefaultCallbacks.register(DefaultCallbacks.java:60)
+	 at com.teamdev.jxbrowser.view.swing.BrowserView.<init>(BrowserView.java:130)
+	 at com.teamdev.jxbrowser.view.swing.BrowserView.newInstance(BrowserView.java:89)
+	 at com.st.microxplorer.plugins.userauth.WebApp.<init>(WebApp.java:221)
+	 at com.st.microxplorer.plugins.userauth.WebApp.getInstance(WebApp.java:773)
+	 at com.st.microxplorer.plugins.userauth.UserAuth.getBrowserView(UserAuth.java:488)
+	 at com.st.microxplorer.plugins.userauth.UserAuth.checkInfile(UserAuth.java:251)
+	 at com.st.microxplorer.plugins.userauth.UserAuth.activatePlugin(UserAuth.java:169)
+	 at com.st.stm32cube.common.mx.userauth.UserAuthAdapter.<init>(UserAuthAdapter.java:29)
+	 at com.st.stm32cube.common.mx.userauth.UserAuthProvider.getUserAuthAdapter(UserAuthProvider.java:16)
+	 at com.st.stm32cube.common.ecosystemintegration.ui.core.MCUEcoSystemIntegrationUiHelper.getUserAuth(MCUEcoSystemIntegrationUiHelper.java:100)
+	 at com.st.stm32cube.ide.mcu.userauth.UserAuthStartup.earlyStartup(UserAuthStartup.java:32)
+	 at org.eclipse.ui.internal.EarlyStartupRunnable.runEarlyStartup(EarlyStartupRunnable.java:79)
+	 at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:55)
+	 at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:47)
+	 at org.eclipse.ui.internal.Workbench$39.run(Workbench.java:2733)
+	 at org.eclipse.core.internal.jobs.Worker.run(Worker.java:63)
