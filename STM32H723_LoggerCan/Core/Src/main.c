@@ -29,7 +29,6 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -59,15 +58,10 @@ UART_HandleTypeDef huart1;
 
 /* Definitions for receiveCanTask */
 osThreadId_t receiveCanTaskHandle;
-uint32_t receiveCanTaskBuffer[ 2048 ];
-osStaticThreadDef_t receiveCanTaskControlBlock;
 const osThreadAttr_t receiveCanTask_attributes = {
   .name = "receiveCanTask",
-  .cb_mem = &receiveCanTaskControlBlock,
-  .cb_size = sizeof(receiveCanTaskControlBlock),
-  .stack_mem = &receiveCanTaskBuffer[0],
-  .stack_size = sizeof(receiveCanTaskBuffer),
-  .priority = (osPriority_t) osPriorityHigh,
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for spiTask */
 osThreadId_t spiTaskHandle;
@@ -603,23 +597,9 @@ void StartReceiveCanTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  while (buffer_has_data()) {  // Finché ci sono messaggi nel buffer CAN
-	 		  buffer_read(&msg);  // Leggiamo un messaggio dal buffer circolare
+	  ;
 
-	 	  }
-	 	  HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin); // Cambia stato al LED
-	 	  //test_can_transmit(&hfdcan1);
-	 	  //test_can_loopback(&hfdcan1);
-	 	  //Print_Report();
-	 	  //uint32_t timestamp = get_timestamp_10us();
-	 	  //printf("Timestamp: %d\n", timestamp);
-	 	 static uint32_t last_debug = 0;
-	 	 if (HAL_GetTick() - last_debug > REPORT_INTERVAL) {
-	 	     print_error_cnt();
-	 	     last_debug = HAL_GetTick();
-	 	 }
-
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -636,11 +616,33 @@ void StartSpiTask(void *argument)
   /* USER CODE BEGIN StartSpiTask */
 	//SPI_StartReception();
   /* Infinite loop */
-  for(;;)
-  {
-	//printf("TaskSpi \n\n");
-	  SPI_Task_10ms();
-    osDelay(1);
+
+  for (;;) {
+	  uint32_t now = get_timestamp_us();  // µs
+
+	  for (int i = 0; i < BUFFER_COUNT; i++) {
+		  CANBuffer *buf = &canBuffers[i];
+
+		  if (buf->full) {
+			  sendViaSPI(buf->messages, buf->index);
+			  buf->full = false;
+		  } else if (i == activeWriteBuffer) {
+			  // Se è il buffer attivo, verifica timeout
+			  __disable_irq();
+			  if (buf->index > 0 && (now - buf->lastMessageTimestamp) >= 10000) {
+				  activeWriteBuffer = (activeWriteBuffer + 1) % BUFFER_COUNT;
+				  __enable_irq();
+				  // Timeout di 10ms
+				  sendViaSPI(buf->messages, buf->index);
+				  buf->full = false;
+
+			  }else{
+			  __enable_irq();
+			  }
+		  }
+	  }
+	  vTaskDelay(pdMS_TO_TICKS(1));  // oppure tick minimo se vuoi più reattività
+
   }
   /* USER CODE END StartSpiTask */
 }

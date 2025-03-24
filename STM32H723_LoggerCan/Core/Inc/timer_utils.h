@@ -13,7 +13,7 @@
 extern TIM_HandleTypeDef htim2;
 
 void TIM2_Init(void);
-uint32_t get_timestamp_10us(void);
+uint32_t get_timestamp_us(void);
 void set_timestamp(void);
 
 

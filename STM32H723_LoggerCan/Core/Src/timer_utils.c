@@ -16,7 +16,7 @@ void TIM2_Init(void) {
     HAL_TIM_Base_Start_IT(&htim2);  // Avvia TIM6 con interrupt
 }
 
-uint32_t get_timestamp_10us() {
+uint32_t get_timestamp_us() {
 
     uint32_t current_overflow;
     uint32_t current_counter;

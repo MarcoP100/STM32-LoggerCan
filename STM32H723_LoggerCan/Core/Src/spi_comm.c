@@ -16,19 +16,22 @@ extern SPI_HandleTypeDef hspi1;  // o quello che usi
 static uint8_t spiTxBuffer[SPI_MSG_LEN];
 static uint8_t spiRxBuffer[SPI_MSG_LEN];
 static volatile uint8_t spi_ready = 1;
+SPI_Packet txPacket;
+SPI_Packet rxPacket;
 
 
 void SPI_Init(void) {
     // (vuoto, se non serve nulla di particolare ora)
 }
 
-void SPI_StartReception(void) {
+void SPI_StartReception(SPI_HandleTypeDef *hspi, const uint8_t *pTxData, uint8_t *pRxData,
+        				uint16_t Size) {
     //HAL_SPI_Receive_DMA(&hspi1, spiRxBuffer, SPI_MSG_LEN);
 
-	HAL_StatusTypeDef res = HAL_SPI_TransmitReceive_DMA(&hspi1, spiTxBuffer, spiRxBuffer, SPI_MSG_LEN);
+	HAL_StatusTypeDef res = HAL_SPI_TransmitReceive_DMA(&hspi, &pTxData, &pRxData, Size);
 	 if (res != HAL_OK) {
-	     printf("ERRORE nel riavvio DMA! codice: %d\r\n", res);
-	     printf("DMA TX: %d | DMA RX: %d\n", HAL_DMA_GetState(hspi1.hdmatx), HAL_DMA_GetState(hspi1.hdmarx));
+		 //printf("ERRORE nel riavvio DMA! codice: %d\r\n", res);
+	     ;//printf("DMA TX: %d | DMA RX: %d\n", HAL_DMA_GetState(hspi1.hdmatx), HAL_DMA_GetState(hspi1.hdmarx));
 	 }else{
 		 spi_ready = 0;
 	 }
@@ -75,3 +78,21 @@ void SPI_Task_10ms(void) {
     }
     //printf("spi_ready: %lu \n", spi_ready);
 }
+
+void sendViaSPI(CAN_Message *messages, uint8_t count) {
+
+	if (spi_ready) {
+
+		    txPacket.header.marker = 0xA5;
+		    txPacket.header.messageCount = count;
+
+		    for (int i = 0; i < count; i++) {
+		    	txPacket.messages[i] = messages[i];
+		    }
+
+		    // TODO: CRC se vuoi
+	        SPI_StartReception(&hspi1, (uint8_t*)&txPacket, (uint8_t*)&rxPacket, sizeof(SPIHeader) + count * sizeof(CAN_Message));  // DMA parte e trasmetterà quando RPi genera clock
+	    }
+
+}
+

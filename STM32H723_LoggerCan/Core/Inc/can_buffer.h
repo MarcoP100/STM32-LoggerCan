@@ -41,9 +41,19 @@ typedef struct {
     uint32_t counter;
 } CAN_Message;
 
-extern CAN_Message canBuffer[CAN_BUFFER_SIZE];
-extern volatile uint8_t canBufferHead;
-extern volatile uint8_t canBufferTail;
+
+// buffer
+#define BLOCK_SIZE 64
+#define BUFFER_COUNT 3
+typedef struct {
+    CAN_Message messages[BLOCK_SIZE];
+    uint16_t index;
+    bool full;
+    uint32_t lastMessageTimestamp;  // per timeout (in µs)
+} CANBuffer;
+
+extern CANBuffer canBuffers[BUFFER_COUNT];
+extern volatile uint8_t activeWriteBuffer = 0;
 
 
 void buffer_write(CAN_Message *msg);
@@ -54,5 +64,6 @@ void test_can_loopback(FDCAN_HandleTypeDef *hfdcan);
 void check_can_rx_polling(FDCAN_HandleTypeDef *hfdcan);
 void check_msg_timestamp(CAN_Message *msg);
 uint8_t FDCAN_GetRxDataLength(uint32_t dlc);
+void process_fifo_rx(FDCAN_HandleTypeDef *hfdcan, uint32_t fifoIndex);
 
 #endif // CAN_BUFFER_H

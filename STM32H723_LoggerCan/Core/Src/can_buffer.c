@@ -33,24 +33,30 @@ volatile uint32_t num_fifo1 = 0;
 uint32_t RxFifo0ITs = 0;
 uint32_t RxFifo1ITs = 0;
 
+CANBuffer canBuffers[BUFFER_COUNT];
+volatile uint8_t activeWriteBuffer = 0;
+volatile uint8_t activeWriteBuffer_old = BUFFER_COUNT;
+
 
 void buffer_write(CAN_Message *msg) {
+	CANBuffer *current = &canBuffers[activeWriteBuffer];
+	if(activeWriteBuffer != activeWriteBuffer_old){
+		current->index = 0;
+		current->full = false;
+		current->lastMessageTimestamp = get_timestamp_us();
+	}
 
-	__disable_irq();
+    current->messages[current->index++] = *msg;
 
-    canBuffer[canBufferHead] = *msg;
-    canBufferHead = (canBufferHead + 1) % CAN_BUFFER_SIZE;
-    if (buffer_count < CAN_BUFFER_SIZE) {
-    	buffer_count++;
-    } else {
-    	canBufferTail = (canBufferTail + 1) % CAN_BUFFER_SIZE; // Sovrascrive il più vecchio
+    if (current->index >= BLOCK_SIZE) { // 1000 * 10µs = 10 ms
+        current->full = true;
+
+        // Passa al prossimo buffer
+        activeWriteBuffer = (activeWriteBuffer + 1) % BUFFER_COUNT;
+
     }
-
-    ok_timestamp++;
-
-    __enable_irq();
-
 }
+
 
 int buffer_read(CAN_Message *msg) {
     if (buffer_has_data() == 0) {
@@ -89,83 +95,53 @@ int buffer_has_data(void) {
     return buffer_count > 0;
 }
 
+void process_fifo_rx(FDCAN_HandleTypeDef *hfdcan, uint32_t fifoIndex) {
+    FDCAN_RxHeaderTypeDef rxHeader;
+    uint8_t rxData[8];
+
+    if (HAL_FDCAN_GetRxMessage(hfdcan, fifoIndex, &rxHeader, rxData) != HAL_OK) {
+        return;
+    }
+
+    CAN_Message msg;
+    msg.id = rxHeader.Identifier;
+    msg.dlc = FDCAN_GetRxDataLength(rxHeader.DataLength);
+    msg.flags = rxHeader.RxFrameType;
+    msg.timestamp = get_timestamp_us(); // già in µs
+
+    for (int i = 0; i < 8; i++) {
+        msg.data[i] = rxData[i];
+    }
+
+    buffer_write(&msg);
+}
 
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
 
-	__HAL_FDCAN_DISABLE_IT(hfdcan, FDCAN_IT_RX_FIFO1_NEW_MESSAGE);
-
 	if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) {
-		FDCAN_RxHeaderTypeDef rxHeader;
-		uint8_t rxData[8];
-		num_fifo0 ++;
-
-
-		   // Legge il messaggio dalla FIFO 0
-		if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
-
-			CAN_Message msg;
-			msg.id = rxHeader.Identifier;
-			msg.dlc = FDCAN_GetRxDataLength(rxHeader.DataLength);
-			msg.flags = rxHeader.RxFrameType;
-			msg.timestamp = get_timestamp_10us(); // Timestamp in µs
-
-			for (int i = 0; i < 8; i++) {
-				msg.data[i] = rxData[i];
-			}
-
-			buffer_write(&msg); // Scrive il messaggio nel buffer circolare
-
-		}
+		process_fifo_rx(hfdcan, FDCAN_RX_FIFO0);
 	}
-
-		 if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_MESSAGE_LOST) {
-		        printf("⚠️ Messaggio perso su FIFO0!\n");
-		    }
-
-		    if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_FULL) {
-		        printf("⚠️ FIFO0 piena!\n");
-		    }
-		__HAL_FDCAN_ENABLE_IT(hfdcan, FDCAN_IT_RX_FIFO1_NEW_MESSAGE);
-
-
+	if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_MESSAGE_LOST) {
+		// log o contatore
+	}
+	if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_FULL) {
+		// log o contatore
+	}
 
 }
 
 void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs) {
 
-	__HAL_FDCAN_DISABLE_IT(hfdcan, FDCAN_IT_RX_FIFO0_NEW_MESSAGE);
-
 	if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) {
-    FDCAN_RxHeaderTypeDef rxHeader;
-    uint8_t rxData[8];
-    num_fifo1 ++;
-
-
-    // Legge il messaggio dalla FIFO 0
-    if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
-
-    	CAN_Message msg;
-    	msg.id = rxHeader.Identifier;
-    	msg.dlc = FDCAN_GetRxDataLength(rxHeader.DataLength);
-    	msg.flags = rxHeader.RxFrameType;
-		msg.timestamp = get_timestamp_10us(); // Timestamp in µs
-
-		for (int i = 0; i < 8; i++) {
-			msg.data[i] = rxData[i];
-		}
-
-		buffer_write(&msg); // Scrive il messaggio nel buffer circolare
-
-    }
+		process_fifo_rx(hfdcan, FDCAN_RX_FIFO1);
 	}
 	if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_MESSAGE_LOST) {
-			        printf("⚠️ Messaggio perso su FIFO0!\n");
-			    }
+		// log o contatore
+	}
+	if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_FULL) {
+		// log o contatore
+	}
 
-			    if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_FULL) {
-			        printf("⚠️ FIFO0 piena!\n");
-			    }
-    __HAL_FDCAN_ENABLE_IT(hfdcan, FDCAN_IT_RX_FIFO0_NEW_MESSAGE);
 }
 
 void test_can_transmit(FDCAN_HandleTypeDef *hfdcan) {
