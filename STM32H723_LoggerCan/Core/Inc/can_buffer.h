@@ -8,6 +8,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timer_utils.h"
+#include <stdbool.h>
 
 
 #define CAN_BUFFER_SIZE 100  // Numero massimo di messaggi salvati
@@ -38,7 +39,6 @@ typedef struct {
     uint8_t data[8];
     uint8_t flags;
     uint32_t timestamp;
-    uint32_t counter;
 } CAN_Message;
 
 
@@ -53,7 +53,7 @@ typedef struct {
 } CANBuffer;
 
 extern CANBuffer canBuffers[BUFFER_COUNT];
-extern volatile uint8_t activeWriteBuffer = 0;
+extern volatile uint8_t activeWriteBuffer;
 
 
 void buffer_write(CAN_Message *msg);

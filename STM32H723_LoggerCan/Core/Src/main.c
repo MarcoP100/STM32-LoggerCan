@@ -620,24 +620,27 @@ void StartSpiTask(void *argument)
   for (;;) {
 	  uint32_t now = get_timestamp_us();  // µs
 
-	  for (int i = 0; i < BUFFER_COUNT; i++) {
-		  CANBuffer *buf = &canBuffers[i];
+	  if (numMsgToSend == 0) {
+		  for (int i = 0; i < BUFFER_COUNT; i++) {
+			  CANBuffer *buf = &canBuffers[i];
 
-		  if (buf->full) {
-			  sendViaSPI(buf->messages, buf->index);
-			  buf->full = false;
-		  } else if (i == activeWriteBuffer) {
-			  // Se è il buffer attivo, verifica timeout
-			  __disable_irq();
-			  if (buf->index > 0 && (now - buf->lastMessageTimestamp) >= 10000) {
-				  activeWriteBuffer = (activeWriteBuffer + 1) % BUFFER_COUNT;
-				  __enable_irq();
-				  // Timeout di 10ms
-				  sendViaSPI(buf->messages, buf->index);
+			  if (buf->full) {
+				  numMsgToSend = buf->index;
+				  idBufferToSend = i;
 				  buf->full = false;
+			  } else if (i == activeWriteBuffer) {
+				  // Se è il buffer attivo, verifica timeout
+				  __disable_irq();
+				  if (buf->index > 0 && (now - buf->lastMessageTimestamp) >= 10000) {
+					  activeWriteBuffer = (activeWriteBuffer + 1) % BUFFER_COUNT;
+					  __enable_irq();
+					  numMsgToSend = buf->index;
+					  idBufferToSend = i;
+					  buf->full = false;
 
-			  }else{
-			  __enable_irq();
+				  }else{
+				  __enable_irq();
+				  }
 			  }
 		  }
 	  }
