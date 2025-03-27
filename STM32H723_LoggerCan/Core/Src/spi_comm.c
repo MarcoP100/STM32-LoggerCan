@@ -11,14 +11,17 @@
 
 
 extern SPI_HandleTypeDef hspi1;  // o quello che usi
-static uint8_t spiTxBuffer[MAX_MESSAGES_PER_BLOCK];
-static uint8_t spiRxBuffer[MAX_MESSAGES_PER_BLOCK];
-static volatile uint8_t spi_ready = 1;
-SPI_Packet txPacket;
+
+static uint8_t spiTxStatusBuffer[2];
+static uint8_t spiRxBuffer[2];
+
+SPI_Packet txPackets[2];
+bool txBufferReady[2];
+uint8_t txBufferTransmit = 0;
 SPI_Packet rxPacket;
 
 volatile uint8_t numMsgToSend = 0;
-volatile uint8_t idBufferToSend = 0;
+uint8_t spiTxLength = 0;
 
 
 void SPI_Init(void) {
@@ -33,15 +36,13 @@ void SPI_StartReception(SPI_HandleTypeDef *hspi, const uint8_t *pTxData, uint8_t
 	 if (res != HAL_OK) {
 		 //printf("ERRORE nel riavvio DMA! codice: %d\r\n", res);
 	     ;//printf("DMA TX: %d | DMA RX: %d\n", HAL_DMA_GetState(hspi1.hdmatx), HAL_DMA_GetState(hspi1.hdmarx));
-	 }else{
-		 spi_ready = 0;
 	 }
 
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
     if (hspi->Instance == SPI1) {
-        SPI_ProcessReceivedData(spiRxBuffer, SPI_MSG_LEN);
+        //SPI_ProcessReceivedData(spiRxBuffer, SPI_MSG_LEN);
         //SPI_StartReception();  // restart
     }
 }
@@ -54,53 +55,15 @@ void SPI_ProcessReceivedData(uint8_t *data, uint16_t len) {
     printf("\r\n");
 }
 
-void prepare_spi_data(uint64_t timestamp) {
-	for (int i = 0; i < 8; i++) {
-        spiTxBuffer[i] = (timestamp >> (8 * i)) & 0xFF;
-    }
-	//memcpy(spiTxBuffer, "\x01\x02\x03\x04\x05\x06\x07\x08", 8);
-
-}
-
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 	if (hspi->Instance == SPI1) {
-        spi_ready = 1;
-
+        txBufferTransmit = 0;
+        SPI_ProcessCommand();
         // Optionally: process received SPI command in spiRxBuffer
     }
 }
 
-void SPI_Task_10ms(void) {
-    if (spi_ready) {
-        uint64_t ts = get_timestamp_us();  // oppure HAL_GetTick()
-        prepare_spi_data(ts);
-        //SPI_StartReception();  // DMA parte e trasmetterà quando RPi genera clock
-    }
-    //printf("spi_ready: %lu \n", spi_ready);
-}
-
-void sendViaSPI(CAN_Message *messages, uint8_t count) {
-
-	if (spi_ready) {
-
-		    txPacket.header.marker = 0xA5;
-		    txPacket.header.messageCount = count;
-
-		    for (int i = 0; i < count; i++) {
-		    	convertToSpiFrame(&messages[i], &txPacket.messages[i]);
-
-		    }
-
-		    // TODO: CRC se vuoi
-	        SPI_StartReception(
-	        		&hspi1,
-					(uint8_t*)&txPacket,
-					(uint8_t*)&rxPacket,
-					sizeof(SPIHeader) + count * sizeof(CAN_Message));  // DMA parte e trasmetterà quando RPi genera clock
-	    }
-
-}
 
 void convertToSpiFrame(const CAN_Message *in, CAN_Log_Message *out){
 	memcpy(out->data, in->data, 8);
@@ -116,41 +79,69 @@ void SPI_ProcessCommand() {
 
     switch (cmd) {
     case CMD_STATUS: {
-        spiTxBuffer[0] = SPI_MARKER;
-        spiTxBuffer[1] = numMsgToSend;  // messaggi disponibili nel triplo buffer
+    	spiTxStatusBuffer[0] = SPI_MARKER;
+    	spiTxStatusBuffer[1] = numMsgToSend;  // messaggi disponibili nel triplo buffer
         spiTxLength = 2;
+        HAL_SPI_TransmitReceive_DMA(&hspi1, spiTxStatusBuffer, spiRxBuffer, spiTxLength);
         break;
     }
 
     case CMD_READ: {
-    	prepareTxPacket(&canBuffers[idBufferToSend], numMsgToSend, &txPacket);
-		spiTxLength = sizeof(SPIHeader) + numMsgToSend * sizeof(CAN_Log_Message);  // per ora senza CRC
-		numMsgToSend = 0;
+    	numMsgToSend = 0;
+    	if ((txBufferReady[0]) && (txBufferTransmit == 0)){
+    		HAL_SPI_TransmitReceive_DMA(&hspi1, (uint8_t *)&txPackets[0], (uint8_t *)&rxPacket, spiTxLength);
+    		txBufferTransmit = 1;
+    		txBufferReady[0] = false;
+    	}else if ((txBufferReady[1]) && (txBufferTransmit == 0)){
+    		HAL_SPI_TransmitReceive_DMA(&hspi1, (uint8_t *)&txPackets[1], (uint8_t *)&rxPacket, spiTxLength);
+    		txBufferTransmit = 2;
+    		txBufferReady[1] = false;
+    	}else{
+    		;
+    	}
         break;
     }
 
     default:
-        spiTxBuffer[0] = 0xFF;  // errore / comando sconosciuto
+    	spiTxStatusBuffer[0] = 0xFF;  // errore / comando sconosciuto
         spiTxLength = 1;
+        HAL_SPI_TransmitReceive_DMA(&hspi1, spiTxStatusBuffer, spiRxBuffer, spiTxLength);
         break;
     }
 
     // Avvia la risposta via DMA
-    HAL_SPI_TransmitReceive_DMA(&hspi1, spiTxBuffer, spiRxBuffer, spiTxLength);
+
 }
 
-void prepareTxBuffer(CANBuffer *buf, uint8_t count, SPI_Packet *packet) {
-	if (count > MAX_MESSAGES_PER_BLOCK) {
-	        count = MAX_MESSAGES_PER_BLOCK;  // protezione base
-	    }
+bool selectTxBuffer(CANBuffer *buf, uint8_t *spiTxLength) {
+
+	for (int i = 0; i < 2; i++) {
+		if (!txBufferReady[i]) {
+			prepareTxBuffer(buf, &txPackets[i]);
+			numMsgToSend = buf->index;
+			*spiTxLength = sizeof(SPIHeader) + numMsgToSend * sizeof(CAN_Log_Message);
+			txBufferReady[i] = true;
+			return true;
+		}
+	}
+	return false;
+
+}
+
+
+void prepareTxBuffer(CANBuffer *buf, SPI_Packet *packet) {
+
+	uint8_t count = buf->index;
+	if (count > MAX_MESSAGES_PER_BLOCK)
+		count = MAX_MESSAGES_PER_BLOCK;
 
 	packet->header.marker = 0xA5;
 	packet->header.messageCount = count;
 
-    for (int i = 0; i < count; i++) {
-        convertToSpiFrame(&buf->messages[i],
-        		&packet->messages[i]);
-    }
-    packet->crc = 0x0000;  // Placeholder (lo aggiungiamo più avanti)
+	for (int i = 0; i < count; i++) {
+		convertToSpiFrame(&buf->messages[i],
+					&packet->messages[i]);
+	}
+	packet->crc = 0x0000;  // Placeholder (lo aggiungiamo più avanti)
 }
 

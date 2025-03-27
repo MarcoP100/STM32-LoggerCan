@@ -41,16 +41,14 @@ typedef struct __attribute__((packed)) {
 } SPI_Packet;
 
 extern volatile uint8_t numMsgToSend;
-extern volatile uint8_t idBufferToSend;
+extern uint8_t spiTxLength;
 
 void SPI_Init(void);
 void SPI_StartReception(SPI_HandleTypeDef *hspi, const uint8_t *pTxData, uint8_t *pRxData,uint16_t Size);
 void SPI_ProcessReceivedData(uint8_t *data, uint16_t len);
-void prepare_spi_data(uint64_t timestamp);
-void SPI_Task_10ms(void);
-void sendViaSPI(CAN_Message *messages, uint8_t count);
 void convertToSpiFrame(const CAN_Message *in, CAN_Log_Message *out);
 void SPI_ProcessCommand();
-void prepareTxBuffer(CANBuffer *buf, uint8_t count, uint8_t *dest);
+bool selectTxBuffer(CANBuffer *buf, uint8_t *spiTxLength);
+void prepareTxBuffer(CANBuffer *buf, SPI_Packet *packet);
 
 #endif /* INC_SPI_COMM_H_ */

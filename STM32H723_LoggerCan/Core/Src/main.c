@@ -593,7 +593,7 @@ static void MX_GPIO_Init(void)
 void StartReceiveCanTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	CAN_Message msg;
+
   /* Infinite loop */
   for(;;)
   {
@@ -623,20 +623,26 @@ void StartSpiTask(void *argument)
 	  if (numMsgToSend == 0) {
 		  for (int i = 0; i < BUFFER_COUNT; i++) {
 			  CANBuffer *buf = &canBuffers[i];
-
+			  bool res = 0;
 			  if (buf->full) {
-				  numMsgToSend = buf->index;
-				  idBufferToSend = i;
-				  buf->full = false;
+
+				  res = selectTxBuffer(buf, &spiTxLength);
+
+				  if (res){
+					  buf->full = false;
+				  }
+
 			  } else if (i == activeWriteBuffer) {
 				  // Se è il buffer attivo, verifica timeout
 				  __disable_irq();
 				  if (buf->index > 0 && (now - buf->lastMessageTimestamp) >= 10000) {
 					  activeWriteBuffer = (activeWriteBuffer + 1) % BUFFER_COUNT;
 					  __enable_irq();
-					  numMsgToSend = buf->index;
-					  idBufferToSend = i;
-					  buf->full = false;
+					  res = selectTxBuffer(buf, &spiTxLength);
+
+					  if (res){
+						  buf->full = false;
+					  }
 
 				  }else{
 				  __enable_irq();
