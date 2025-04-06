@@ -410,7 +410,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_INPUT;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -574,12 +574,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : SPI_CS_Pin */
+  GPIO_InitStruct.Pin = SPI_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+
+
 
 /* USER CODE END 4 */
 
@@ -616,9 +624,15 @@ void StartSpiTask(void *argument)
   /* USER CODE BEGIN StartSpiTask */
 	//SPI_StartReception();
   /* Infinite loop */
-
+	SPI_Init();
   for (;;) {
+
 	  uint32_t now = get_timestamp_us();  // µs
+
+	  bool watchdogRes = SPI_IsWatchdogExpired();
+	  if (watchdogRes) {
+		  SPI_reStartMode();
+	  }
 
 	  if (numMsgToSend == 0) {
 		  for (int i = 0; i < BUFFER_COUNT; i++) {
@@ -650,7 +664,8 @@ void StartSpiTask(void *argument)
 			  }
 		  }
 	  }
-	  vTaskDelay(pdMS_TO_TICKS(1));  // oppure tick minimo se vuoi più reattività
+
+	 vTaskDelay(pdMS_TO_TICKS(1));  // oppure tick minimo se vuoi più reattività
 
   }
   /* USER CODE END StartSpiTask */
